@@ -3,9 +3,13 @@ from rich.layout import Layout
 from rich.panel import Panel
 
 from textwrap import wrap
+from datetime import date
+
 import struct
 import socket
 import shutil
+import glob
+import os
 
 from DataParser import DataParser
 
@@ -14,12 +18,33 @@ class UI:
     def __init__(self, parser: DataParser):
         self._parser = parser
         self.__console_columns = shutil.get_terminal_size().columns
+        self.__save_file_name = self.__generate_save_file_name()
+        self.__save_file = open(self.__save_file_name, "w")
+        self.__save_file.close()
         self.__proto_count = {
             "udp": 0,
             "tcp": 0,
             "icmp": 0,
             "other": 0,
+            "total": 0,
         }
+
+    def __save_to_file(self, data):
+        self.__save_file = open(self.__save_file_name, 'a')
+        self.__save_file.write(data + '\n\n')
+        self.__save_file.close()
+
+    @staticmethod
+    def __generate_save_file_name():
+        d = date.today()
+        cwd = os.getcwd()
+        current_num = 0
+        current_name = f"{cwd}/saves/{str(d)}({current_num}).txt"
+        for name in glob.glob(cwd + "/saves/*.txt"):
+            if name == current_name:
+                current_num += 1
+                current_name = f"{cwd}/saves/{str(d)}({current_num}).txt"
+        return current_name
 
     @staticmethod
     def _format_mac_address(raw_mac):
@@ -114,9 +139,9 @@ class UI:
             Layout(name="body", ratio=2)
         )
 
-        header = "\n\n{}\n{}\n\n\nQuick commands:\nCtrl+C -> exit the application\n"\
+        header = "\n\n{}\n{}\n\n\nQuick commands:\nCtrl+C -> exit the application\n" \
             .format("Packet sniffer".center(self.__console_columns),
-                    "by Andrei-Fabian Pop".center(self.__console_columns + 2*len("by Andrei-Fabian Pop")))
+                    "by Andrei-Fabian Pop".center(self.__console_columns + 2 * len("by Andrei-Fabian Pop")))
 
         layout["header"].update(Panel(header, border_style="green"))
 
@@ -159,20 +184,22 @@ class UI:
                         self.__proto_count["other"] += 1
 
                     side += \
+                        "TOTAL: {}\n" \
                         "TCP: {}\n" \
                         "UDP: {}\n" \
                         "ICMP: {}\n" \
                         "Other: {}\n".format(
+                            self.__proto_count["total"],
                             self.__proto_count["tcp"],
                             self.__proto_count["udp"],
                             self.__proto_count["icmp"],
                             self.__proto_count["other"]
                         )
 
+                    self.__save_to_file(body)
                     layout["body"].update(Panel(body, border_style="green"))
                     layout["side"].update(Panel(side, border_style="green"))
                     console.print(layout)
         except KeyboardInterrupt:
             layout["header"].update("\nGoodbye...")
             console.print(layout)
-
